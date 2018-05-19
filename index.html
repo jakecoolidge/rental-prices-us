@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset=utf-8 />
+    <title>Rental Prices in the US</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css" />
+    <link href='http://fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: whitesmoke;
+            font-family: Lato, sans-serif;
+            color: #0D0000;
+        }
+        header {
+            width: 80%;
+            margin: 10px auto 10px auto;
+        }
+        h1 {
+            display: inline-block;
+            margin-right: 20px;
+            color: #001323;
+        }
+        h2 {
+            display: inline-block;
+            color: #001323;
+        }
+        #map {
+            width: 80%;
+            height: 540px;
+            margin: 10px 10%;
+            background: #aaaaaa;
+            border: 2px solid #dddedf;
+        }
+        footer {
+            padding: 6px 10%;
+            width: 80%;
+        }
+        p {
+            font-size: 1em;
+            color: #001323;
+        }
+        .legend{
+          font-family: Lato, sans-serif;
+          padding: 6px 8px;
+          font-size: 1em;
+          background: rgba(255,255,255,0.8);
+          box-shadow: 0 0 15px rgba(0,0,0,0.2);
+          border-radius: 5px;
+        }
+        .legend h3 {
+          font-weight: bold;
+        }
+        .legend span {
+          width: 20px;
+          height: 20px;
+          float: left;
+          margin: 0 10px 4px 0;
+        }
+        .legend label {
+          font-size: 1.1em;
+        }
+        .legend label:after {
+          content: '';
+          display: block;
+          clear: both;
+        }
+        .leaflet-popup h3 {
+          margin: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Rental Prices</h1>
+        <h2>in the United States</h2>
+    </header>
+
+    <div id='map'></div>
+
+    <footer>
+        <p>Map authored by Jake Coolidge and New Maps Plus</p>
+        <p>Rental data for counties in the US (territories not included) from <a href="https://factfinder.census.gov/">American FactFinder.</a> Geospatial data, including state and county boundaries, downloaded from <a href="https://www.census.gov/geo/maps-data/data/cbf/cbf_counties.html">US Census Cartographic Boundary shapefiles.</a></p>
+        <p>Data classified using the Ckmeans clustering method developed by <a href="http://journal.r-project.org/archive/2011-2/RJournal_2011-2_Wang+Song.pdf">Haizhou Wang and Mingzhou Song.</a></p>
+    </footer>
+
+
+    <script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/simple-statistics@2.5.0/dist/simple-statistics.min.js"></script>
+    <!--script src="data/counties_median_rent_2015_var.js"></script-->
+
+    <script>
+        var options = {
+          center: [37.8, -96.5],
+          zoom: 4.5,
+          zoomSnap: .5,
+          zoomControl: false //we'll add it back in later, positioning topright instead of the default topleft
+        },
+
+        map = L.map('map', options),
+
+        nameValue = "NAME",
+
+        rentValue = "RENT";
+
+        /*var popupData = L.geoJson(counties, {
+            style: function(feature) {
+              return {
+                color: '#c07e48',
+                fillColor: '#c07e48',
+                //radius: getRadius(feature.properties.primary_output)
+              }
+            },
+            onEachFeature : function(feature, layer) {
+              layer.on('mouseover', function() {
+                layer.setStyle({
+                  fillColor: '#fff394'
+                });
+              });
+              var popHeader = "<h3>" + feature.properties.NAME + "</h3><p>" + feature.properties.RENT.toLocaleString() + "</p>";
+              layer.bindPopup(popHeader);
+              layer.on('mouseout', function() {
+                layer.setStyle({
+                  fillColor: '#c07e48'
+                });
+              });
+            }
+        }).addTo(map);*/
+
+        $.getJSON("data/counties_median_rent_2015.json", function(data) {
+          //console.log(data);
+          var dataLayer = L.geoJSON(data, {
+            style: function(feature) {
+              return {
+                color: '#dddddd',
+                weight: 1,
+                fillOpacity: 1,
+                fillColor: '#1f78b4'
+              };
+            }
+          }).addTo(map) //.bindPopup("hulloo");
+          //console.log(dataLayer);
+          drawMap(dataLayer);
+          //createPopup(dataLayer);
+        });
+
+        map.addControl(L.control.zoom({position: 'topright'}));
+
+
+
+
+        // $.getJSON("data/counties_median_rent_2015.json", function(data) {
+        //   var popupData = L.geoJSON(data, {
+        //     style: function (feature) {
+        //       return {
+        //         color: '#dddddd',
+        //         weight: 0.5,
+        //         fillOpacity: 0
+        //       };
+        //     }
+        //   }).bindPopup(function (layer) {
+        //     return layer.feature.properties.NAME;
+        //   }).addTo(map);
+        // })
+        //console.log(popupData);
+        /*map.on('click', function(e) {
+          dataLayer.eachLayer(function(layer) {
+            layer.bindPopup("hello")
+          })
+        })*/
+
+        //I'm getting a list of names in the console but no popup
+        //I had to wrap this in a function because dataLayer is not available
+        //outside of the above function
+        function createPopup(dataLayer) {
+          //console.log(dataLayer._layers);
+          map.on('click', function(e) {
+          dataLayer.eachLayer(function(layer) {
+            console.log('what');//(layer.feature.properties.NAME);
+            layer.bindPopup(layer.feature.properties.NAME)
+          });
+        });
+      }
+
+
+        function drawMap(dataLayer) {
+          var breaks = getClassBreaks(dataLayer);
+          //console.log(breaks);
+          drawLegend(breaks); //remember! drawLegend will never work until you invoke it somewhere
+          dataLayer.eachLayer(function(layer) {
+            //layer.setStyle( {fillColor: 'yellow'});
+            //console.log(layer.feature.properties);
+            layer.setStyle({
+                fillColor: getColor(layer.feature.properties[rentValue], breaks)
+            });
+            layer.on('mouseover', function () {
+              var center = this.getBounds().getCenter();
+              console.log(this);
+              layer.openPopup(center);
+            });//end mouseover
+            //layer.on('mouseout', function () {
+            //  this.closePopup();
+            //});//end mouseout
+            layer.bindPopup('<h3>'+layer.feature.properties[nameValue]+' County</h3>average rent: $' + layer.feature.properties[rentValue].toLocaleString());
+          });
+        };
+
+        function drawLegend(breaks) {
+          console.log(breaks);
+          //create Leaflet control object and give it a position
+          var legend = L.control({position: 'bottomleft'});
+          //legend added with onAdd method
+          legend.onAdd = function () {
+            //create new HTML div element and give it a class name of legend (link to css: .legend)
+            var div = L.DomUtil.create('div', 'legend');
+            //append an h3 element to the div that contains the attribute and norm values
+            div.innerHTML = "<h3>Median Rental Price</h3>";
+            //for each break object (each an array comprised of the lowest and highest value for each class)
+            for (var i = 0; i < breaks.length; i++) {
+              //determine the color associated with each break value, including the lower range value
+              var color = getColor(breaks[i][0], breaks);
+              //concatenate a span element styled with the color and range values; these won't appear until we provide width and height attributes in the css
+              //also include a label
+              div.innerHTML +=
+                '<span style="background:'
+                  + color +
+                '"></span> ' +
+                '<label>$'
+                  + (breaks[i][0]).toLocaleString() + ' &mdash; ' +
+                  (breaks[i][1]).toLocaleString() +
+                '</label>';
+            }
+            //return the populated div for addition to the map
+            return div;
+          };
+          // the legend with its populated div added to the map
+          legend.addTo(map);
+        }; //end drawLegend function
+
+        function getClassBreaks(dataLayer) {
+          //an empty array will store resulting values
+          var values = [];
+          //here we loop through the counties
+          dataLayer.eachLayer(function(layer) {
+            var value = layer.feature.properties[rentValue];
+            values.push(value);
+          });
+          //console.log(values);
+          var clusters = ss.ckmeans(values, 5);
+          var breaks = clusters.map(function(cluster) {
+            return [Number(cluster[0]),Number(cluster.pop())];
+          });
+          //console.log(breaks);
+          return breaks;
+        };
+
+        function getColor(d, breaks) { //looks like my breaks arrays are giving me strings, not numbers (!)
+          if (d <= breaks[0][1]) {
+            return '#edf8fb';
+          } else if (d <= breaks[1][1]) {
+            return '#b2e2e2';
+          } else if (d <= breaks[2][1]) {
+            return '#66c2a4';
+          } else if (d <= breaks[3][1]) {
+            return '#2ca25f';
+          } else if (d <= breaks[4][1]) {
+            return '#006d2c';
+          }
+        };
+
+        $.getJSON("data/us_states.geojson", function(data) {
+          L.geoJSON(data, {
+            style: function(feature) {
+              return {
+                color: '#aaaaaa',
+                weight: 1.5,
+                //fillOpacity: 0.5,
+                //fillColor: 'transparent'
+                fill: false
+                // from Leaflet docs: http://leafletjs.com/reference-1.2.0.html#path-fill
+              };
+            }
+          }).addTo(map);
+        })
+
+    </script>
+
+</body>
+
+</html>
